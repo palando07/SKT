@@ -1,0 +1,372 @@
+<title>Buzdolabı Dedektifi</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: one narrow app column like a fridge door; shelves = sections, items = magnets with a freshness strip */
+:root{
+  --bg:#e9f0ee; --door:#f7faf9; --ink:#16302b; --muted:#5b7069; --line:#cfdcd8;
+  --yolk:#e3a019; --yolk-ink:#3a2700; --fresh:#2f8a5b; --soon:#d98a0b; --bad:#c8432f;
+  --chip:#dfe9e5;
+  --f-display:"Bricolage Grotesque", "Trebuchet MS", sans-serif;
+  --f-body:"Figtree", system-ui, sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1917; --door:#172421; --ink:#e4efeb; --muted:#93a8a1; --line:#2a3b37;
+  --yolk:#f0b437; --yolk-ink:#2a1c00; --fresh:#4fbf86; --soon:#f0a733; --bad:#ec6a55; --chip:#21312d; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1917; --door:#172421; --ink:#e4efeb; --muted:#93a8a1; --line:#2a3b37;
+  --yolk:#f0b437; --yolk-ink:#2a1c00; --fresh:#4fbf86; --soon:#f0a733; --bad:#ec6a55; --chip:#21312d; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--f-body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
+.app{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+header{display:flex;flex-wrap:wrap;align-items:end;justify-content:space-between;gap:12px}
+h1{font:800 clamp(28px,6vw,40px)/1 var(--f-display);margin:0;letter-spacing:-.02em;text-wrap:balance}
+h1 span{color:var(--yolk)}
+.sub{color:var(--muted);margin:4px 0 0}
+h2{font:600 20px/1.2 var(--f-display);margin:0;text-wrap:balance}
+.lbl{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+nav{display:flex;gap:6px;flex-wrap:wrap}
+nav button{border:1px solid var(--line);background:var(--door);color:var(--ink);font:600 14px var(--f-body);padding:8px 14px;border-radius:999px;cursor:pointer}
+nav button[aria-selected="true"]{background:var(--ink);color:var(--door);border-color:var(--ink)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--yolk);outline-offset:2px}
+.panel{background:var(--door);border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:14px}
+.alert{display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:color-mix(in srgb,var(--soon) 14%,var(--door));border:1px solid color-mix(in srgb,var(--soon) 45%,var(--line));border-radius:14px;padding:12px 16px}
+.alert b{font-family:var(--f-display)}
+.alert.bad{background:color-mix(in srgb,var(--bad) 12%,var(--door));border-color:color-mix(in srgb,var(--bad) 45%,var(--line))}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.stat{padding:10px 0;border-top:3px solid var(--ink)}
+.stat .n{font:800 28px/1 var(--f-display);font-variant-numeric:tabular-nums}
+.shelf{display:flex;flex-direction:column;gap:8px}
+.item{display:grid;grid-template-columns:6px 1fr auto;gap:12px;align-items:center;background:var(--bg);border-radius:10px;padding:10px 12px 10px 0;overflow:hidden}
+.strip{align-self:stretch;border-radius:0 4px 4px 0}
+.item .name{font-weight:600;min-width:0}
+.item .meta{color:var(--muted);font-size:13px}
+.days{font:500 13px var(--f-mono);white-space:nowrap;text-align:right}
+.acts{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+.mini{border:1px solid var(--line);background:var(--door);color:var(--ink);font:500 12px var(--f-body);padding:3px 9px;border-radius:999px;cursor:pointer}
+.mini:hover{border-color:var(--ink)}
+.btn{border:0;background:var(--yolk);color:var(--yolk-ink);font:600 15px var(--f-body);padding:10px 18px;border-radius:10px;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn:disabled{opacity:.55;cursor:wait}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:end}
+.row>label{display:flex;flex-direction:column;gap:4px;flex:1 1 140px;min-width:0}
+input,select{font:15px var(--f-body);color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%}
+.drop{border:2px dashed var(--line);border-radius:12px;padding:26px 16px;text-align:center;cursor:pointer;color:var(--muted)}
+.drop.over{border-color:var(--yolk);color:var(--ink)}
+.drop strong{display:block;color:var(--ink);font:600 17px var(--f-display);margin-bottom:4px}
+.receipt{font:500 13px/1.6 var(--f-mono);background:var(--bg);border-radius:10px;padding:12px;overflow-x:auto}
+.receipt table{width:100%;border-collapse:collapse;min-width:460px}
+.receipt td,.receipt th{padding:4px 6px;text-align:left;border-bottom:1px dashed var(--line)}
+.receipt input{padding:3px 6px;font:inherit}
+.tag{display:inline-block;background:var(--chip);border-radius:999px;padding:1px 8px;font-size:12px;margin:2px 4px 0 0}
+.tag.use{background:color-mix(in srgb,var(--fresh) 22%,var(--door))}
+.tag.miss{background:color-mix(in srgb,var(--bad) 16%,var(--door))}
+.recipes{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:12px}
+.recipe{border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.recipe ol{margin:0;padding-left:20px}
+.note{color:var(--muted);font-size:13px}
+.demo{display:inline-block;background:var(--yolk);color:var(--yolk-ink);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;border-radius:4px}
+.empty{color:var(--muted);text-align:center;padding:20px}
+@media (max-width:480px){.stats{grid-template-columns:repeat(3,minmax(0,1fr))}.stat .n{font-size:22px}}
+@media (prefers-reduced-motion:no-preference){.item{transition:transform .15s}.item:hover{transform:translateX(2px)}}
+</style>
+
+<div class="app">
+  <header>
+    <div>
+      <h1>Buzdolabı <span>Dedektifi</span></h1>
+      <p class="sub">Fişini çek, dolabını takip et, bozulmadan pişir.</p>
+    </div>
+    <nav role="tablist">
+      <button role="tab" data-tab="dolap" aria-selected="true" id="t-dolap">Dolabım</button>
+      <button role="tab" data-tab="fis" aria-selected="false" id="t-fis">Fiş ekle</button>
+      <button role="tab" data-tab="tarif" aria-selected="false" id="t-tarif">Tarif öner</button>
+    </nav>
+  </header>
+
+  <div id="alert" class="alert" hidden></div>
+
+  <!-- DOLAP -->
+  <section id="v-dolap" class="panel">
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <h2>Dolapta ne var?</h2>
+      <span id="demoBadge" class="demo" hidden>Örnek veriler</span>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="n" id="sActive">0</div><div class="lbl">Dolapta</div></div>
+      <div class="stat"><div class="n" id="sSoon" style="color:var(--soon)">0</div><div class="lbl">3 gün içinde</div></div>
+      <div class="stat"><div class="n" id="sSaved" style="color:var(--fresh)">0%</div><div class="lbl">Kurtarılan</div></div>
+    </div>
+    <div id="shelf" class="shelf"></div>
+    <details>
+      <summary class="lbl" style="cursor:pointer">Elle ürün ekle</summary>
+      <form id="addForm" class="row" style="margin-top:10px">
+        <label>Ürün<input id="fName" required placeholder="ör. Süzme yoğurt" list="known"></label>
+        <label style="flex:0 1 90px">Miktar<input id="fQty" placeholder="1 kg"></label>
+        <label style="flex:0 1 150px">Son tarih<input id="fExp" type="date"></label>
+        <button class="btn" type="submit">Ekle</button>
+      </form>
+      <p class="note">Tarihi boş bırakırsan ürüne göre tahmini raf ömrü kullanılır.</p>
+    </details>
+    <p id="history" class="note"></p>
+  </section>
+
+  <!-- FİŞ -->
+  <section id="v-fis" class="panel" hidden>
+    <h2>Market fişini okut</h2>
+    <label id="drop" class="drop" for="file">
+      <strong>Fiş fotoğrafını seç veya buraya bırak</strong>
+      Ürünleri ve tahmini son kullanma tarihlerini çıkarırım. Gıda dışı kalemleri atlarım.
+      <input id="file" type="file" accept="image/*" hidden>
+    </label>
+    <p id="fisStatus" class="note" hidden></p>
+    <div id="fisResult" hidden>
+      <div class="receipt"><table>
+        <thead><tr><th>Ürün</th><th>Miktar</th><th>Fiyat</th><th>Son tarih</th><th></th></tr></thead>
+        <tbody id="fisRows"></tbody>
+      </table></div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn" id="fisSave">Dolaba ekle</button>
+        <button class="btn ghost" id="fisCancel">Vazgeç</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- TARİF -->
+  <section id="v-tarif" class="panel" hidden>
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <h2>Bozulmadan ne pişirsem?</h2>
+      <button class="btn" id="askRecipe">Tarif öner</button>
+    </div>
+    <p class="note" id="recipeIntro">Son tarihi en yakın ürünleri öne alarak tarif bulurum.</p>
+    <div id="recipes" class="recipes"></div>
+  </section>
+</div>
+
+<datalist id="known"></datalist>
+
+<script>
+// Tahmini raf ömrü (gün), buzdolabı koşulunda
+const SHELF = {
+  "süt":5,"yoğurt":10,"ayran":7,"kefir":7,"beyaz peynir":21,"kaşar":30,"lor":5,"tereyağı":30,"kaymak":4,"krema":5,
+  "yumurta":21,"tavuk":2,"kıyma":2,"et":3,"balık":1,"sucuk":20,"salam":7,"sosis":10,"pastırma":30,
+  "ıspanak":4,"marul":5,"roka":3,"maydanoz":5,"dereotu":4,"domates":7,"salatalık":6,"biber":7,"patlıcan":6,"kabak":6,
+  "havuç":21,"patates":30,"soğan":30,"sarımsak":60,"limon":21,"elma":21,"muz":5,"çilek":3,"üzüm":6,"portakal":14,
+  "ekmek":3,"lavaş":5,"mantar":4,"zeytin":30,"humus":5,"brokoli":5,"karnabahar":7,"pırasa":10
+};
+const DEFAULT_DAYS = 7;
+const DAY = 864e5;
+const today0 = () => { const d = new Date(); d.setHours(0,0,0,0); return d; };
+const iso = d => new Date(d.getTime() - d.getTimezoneOffset()*6e4).toISOString().slice(0,10);
+const addDays = n => iso(new Date(today0().getTime() + n*DAY));
+const daysLeft = e => Math.round((new Date(e + "T00:00:00") - today0()) / DAY);
+const guessDays = name => {
+  const n = name.toLocaleLowerCase("tr");
+  let best = null;
+  for (const k in SHELF) if (n.includes(k) && (!best || k.length > best.length)) best = k;
+  return best ? SHELF[best] : DEFAULT_DAYS;
+};
+const uid = () => Math.random().toString(36).slice(2, 10);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+document.getElementById("known").innerHTML = Object.keys(SHELF).map(k => `<option value="${k[0].toLocaleUpperCase("tr")+k.slice(1)}">`).join("");
+
+const DEMO = () => [
+  ["Ispanak", "500 g", 1], ["Süzme yoğurt", "1 kg", 2], ["Yumurta", "10 adet", 12], ["Tavuk göğsü", "600 g", 0],
+  ["Domates", "1 kg", 4], ["Beyaz peynir", "300 g", 15], ["Maydanoz", "1 demet", 3], ["Süt", "1 L", -1]
+].map(([name, qty, d]) => ({ id: uid(), name, qty, expires: addDays(d), added: addDays(-3), status: "active" }));
+
+let state = { items: DEMO(), demo: true };
+let store = null; // {save(state)}
+
+// --- Kalıcılık: kişiye özel db belgesi, yoksa tarayıcı belleği
+async function initStore() {
+  try {
+    const raw = localStorage.getItem("bd-state");
+    if (raw) { state = JSON.parse(raw); render(); }
+  } catch {}
+  const local = { save: s => { try { localStorage.setItem("bd-state", JSON.stringify(s)); } catch {} } };
+  store = local;
+  if (!window.claude) return;
+  const [db, user] = await Promise.all([claude.use("db"), claude.use("user")]);
+  const id = user && await user.id();
+  if (!db || !id) return;
+  const ref = db.doc("data/users/" + id + "/fridge");
+  let first = true;
+  ref.onSnapshot(snap => {
+    if (snap.exists) { const d = snap.data(); state = { items: d.items || [], demo: false }; render(); }
+    else if (first && !state.demo) ref.set({ items: state.items }).catch(() => {});
+    first = false;
+  }, () => {});
+  store = { save: s => { local.save(s); if (!s.demo) ref.set({ items: s.items }).catch(() => {}); } };
+}
+function commit() { render(); store && store.save(state); }
+function leaveDemo() { if (state.demo) { state = { items: [], demo: false }; } }
+
+// --- Görünüm
+function color(d) { return d < 0 ? "var(--bad)" : d <= 2 ? "var(--soon)" : "var(--fresh)"; }
+function label(d) { return d < 0 ? `${-d} gün geçti` : d === 0 ? "bugün son" : d === 1 ? "yarın son" : `${d} gün`; }
+
+function render() {
+  const active = state.items.filter(i => i.status === "active").sort((a, b) => a.expires.localeCompare(b.expires));
+  const eaten = state.items.filter(i => i.status === "eaten").length;
+  const trashed = state.items.filter(i => i.status === "trashed").length;
+  const soon = active.filter(i => daysLeft(i.expires) <= 2 && daysLeft(i.expires) >= 0);
+  const expired = active.filter(i => daysLeft(i.expires) < 0);
+
+  document.getElementById("demoBadge").hidden = !state.demo;
+  document.getElementById("sActive").textContent = active.length;
+  document.getElementById("sSoon").textContent = active.filter(i => daysLeft(i.expires) <= 3 && daysLeft(i.expires) >= 0).length;
+  document.getElementById("sSaved").textContent = (eaten + trashed) ? Math.round(100 * eaten / (eaten + trashed)) + "%" : "–";
+  document.getElementById("history").textContent = (eaten + trashed)
+    ? `Şimdiye kadar ${eaten} ürünü tükettin, ${trashed} ürünü attın.` : "";
+
+  const al = document.getElementById("alert");
+  if (expired.length || soon.length) {
+    al.hidden = false;
+    al.className = "alert" + (expired.length ? " bad" : "");
+    const names = [...expired, ...soon].slice(0, 4).map(i => i.name).join(", ");
+    al.innerHTML = `<div style="flex:1;min-width:0"><b>${expired.length ? expired.length + " ürünün tarihi geçti" : soon.length + " ürün 2 gün içinde bozulacak"}</b><br><span class="note">${esc(names)}</span></div>
+      <button class="btn" data-goto="tarif">Bunlarla tarif bul</button>`;
+  } else al.hidden = true;
+
+  const shelf = document.getElementById("shelf");
+  shelf.innerHTML = active.length ? active.map(i => {
+    const d = daysLeft(i.expires);
+    return `<div class="item"><div class="strip" style="background:${color(d)}"></div>
+      <div style="min-width:0"><div class="name">${esc(i.name)}</div>
+        <div class="meta">${esc(i.qty || "")}${i.qty ? " · " : ""}SKT ${new Date(i.expires + "T00:00:00").toLocaleDateString("tr-TR", { day: "numeric", month: "short" })}</div>
+        <div class="acts"><button class="mini" data-act="eaten" data-id="${i.id}">Tükettim</button>
+          <button class="mini" data-act="trashed" data-id="${i.id}">Attım</button>
+          <button class="mini" data-act="plus" data-id="${i.id}">+2 gün</button></div></div>
+      <div class="days" style="color:${color(d)}">${label(d)}</div></div>`;
+  }).join("") : `<div class="empty">Dolap boş. Bir fiş okut ya da elle ürün ekle.</div>`;
+}
+
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-act]");
+  if (b) {
+    const it = state.items.find(i => i.id === b.dataset.id);
+    if (!it) return;
+    if (b.dataset.act === "plus") it.expires = iso(new Date(new Date(it.expires + "T00:00:00").getTime() + 2 * DAY));
+    else it.status = b.dataset.act;
+    commit(); return;
+  }
+  const g = e.target.closest("[data-goto]");
+  if (g) { show(g.dataset.goto); if (g.dataset.goto === "tarif") askRecipes(); }
+});
+
+function show(tab) {
+  for (const t of ["dolap", "fis", "tarif"]) {
+    document.getElementById("v-" + t).hidden = t !== tab;
+    document.getElementById("t-" + t).setAttribute("aria-selected", t === tab);
+  }
+}
+document.querySelectorAll("nav button").forEach(b => b.onclick = () => show(b.dataset.tab));
+
+document.getElementById("addForm").onsubmit = e => {
+  e.preventDefault();
+  const name = fName.value.trim(); if (!name) return;
+  leaveDemo();
+  state.items.push({ id: uid(), name, qty: fQty.value.trim(), expires: fExp.value || addDays(guessDays(name)), added: iso(today0()), status: "active" });
+  fName.value = fQty.value = fExp.value = "";
+  commit();
+};
+
+// --- Claude bağlantısı
+let samplePromise = window.claude ? claude.use("sample") : Promise.resolve(null);
+const errText = c => ({
+  not_granted: "Claude'a erişim izni verilmedi. İzin verirsen fişi ve tarifleri ben hazırlarım.",
+  rate_limited: "Çok fazla istek gitti. Biraz bekleyip tekrar dene.",
+  image_rejected: "Bu görüntüyü okuyamadım. Daha net bir fotoğraf dene.",
+  images_unavailable: "Bu görünümde fotoğraf gönderilemiyor."
+}[c] || "Bir şeyler ters gitti. Tekrar dene.");
+
+// --- Fiş okuma
+const drop = document.getElementById("drop"), fisStatus = document.getElementById("fisStatus");
+let pending = [];
+["dragover", "dragenter"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, () => drop.classList.remove("over")));
+drop.addEventListener("drop", e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) readReceipt(f); });
+document.getElementById("file").onchange = e => { const f = e.target.files[0]; if (f) readReceipt(f); e.target.value = ""; };
+
+async function readReceipt(file) {
+  const sample = await samplePromise;
+  fisStatus.hidden = false;
+  if (!sample) { fisStatus.textContent = "Fiş okuma için sayfayı Claude içinde açman gerekiyor. Şimdilik ürünleri elle ekleyebilirsin."; return; }
+  fisStatus.textContent = "Fişi okuyorum… (yarım dakika sürebilir)";
+  const prompt = `Bu bir Türk market fişinin fotoğrafı. Sadece gıda ve içecek kalemlerini çıkar (poşet, deterjan, indirim satırları hariç).
+Her kalem için: name (kısaltmaları aç, ör. "SUZME YOG. 1KG" -> "Süzme yoğurt"), qty (fişteki miktar, ör. "1 kg", "2 adet"), price (TL, sayı), shelfDays (bugünden itibaren buzdolabında/kilerde tahmini kaç gün dayanır, tam sayı).
+Bugün: ${iso(today0())}. Sadece şu JSON'u döndür: {"store":"...","items":[{"name":"","qty":"","price":0,"shelfDays":0}]}`;
+  try {
+    const out = await sample.json(prompt, { images: [file] });
+    pending = (out.items || []).map(x => ({ id: uid(), name: String(x.name || "").trim(), qty: String(x.qty || ""), price: Number(x.price) || null,
+      expires: addDays(Number.isFinite(+x.shelfDays) && +x.shelfDays > 0 ? Math.round(+x.shelfDays) : guessDays(String(x.name || ""))), added: iso(today0()), status: "active" }))
+      .filter(x => x.name);
+    if (!pending.length) { fisStatus.textContent = "Fişte gıda ürünü bulamadım."; return; }
+    fisStatus.textContent = `${out.store ? out.store + " fişinden " : ""}${pending.length} ürün buldum. Kontrol et, tarihleri düzelt, sonra dolaba ekle.`;
+    renderPending();
+  } catch (e) { fisStatus.textContent = errText(e.code); }
+}
+function renderPending() {
+  document.getElementById("fisResult").hidden = !pending.length;
+  document.getElementById("fisRows").innerHTML = pending.map((p, i) => `<tr>
+    <td><input id="pn${i}" value="${esc(p.name)}" data-i="${i}" data-k="name"></td>
+    <td><input id="pq${i}" value="${esc(p.qty)}" data-i="${i}" data-k="qty" style="width:80px"></td>
+    <td>${p.price != null ? p.price.toFixed(2).replace(".", ",") + " ₺" : "–"}</td>
+    <td><input id="pe${i}" type="date" value="${p.expires}" data-i="${i}" data-k="expires"></td>
+    <td><button class="mini" data-rm="${i}">Çıkar</button></td></tr>`).join("");
+}
+document.getElementById("fisRows").addEventListener("input", e => { const t = e.target; if (t.dataset.k) pending[t.dataset.i][t.dataset.k] = t.value; });
+document.getElementById("fisRows").addEventListener("click", e => { const r = e.target.dataset.rm; if (r != null) { pending.splice(+r, 1); renderPending(); } });
+document.getElementById("fisCancel").onclick = () => { pending = []; renderPending(); fisStatus.hidden = true; };
+document.getElementById("fisSave").onclick = () => {
+  leaveDemo(); state.items.push(...pending.filter(p => p.name && p.expires));
+  const n = pending.length; pending = []; renderPending(); fisStatus.textContent = `${n} ürün dolaba eklendi.`;
+  commit(); show("dolap");
+};
+
+// --- Tarif önerisi
+const FALLBACK = [
+  { title: "Ispanaklı yumurta", time: "15 dk", needs: ["ıspanak", "yumurta"], extra: ["soğan", "tereyağı"], steps: ["Soğanı tereyağında kavur.", "Ispanağı ekleyip söndür.", "Yumurtaları kır, kapağını kapatıp pişir."] },
+  { title: "Yoğurtlu tavuk sote", time: "30 dk", needs: ["tavuk", "yoğurt"], extra: ["biber", "baharat"], steps: ["Tavuğu yoğurt ve baharatla 10 dk marine et.", "Yüksek ateşte sote et.", "Biberi ekleyip 5 dk daha pişir."] },
+  { title: "Menemen", time: "15 dk", needs: ["domates", "yumurta"], extra: ["biber"], steps: ["Biberi kavur, domatesi ekle.", "Suyunu çekince yumurtaları kır.", "Karıştırarak pişir."] },
+  { title: "Peynirli maydanozlu omlet", time: "10 dk", needs: ["yumurta", "peynir", "maydanoz"], extra: [], steps: ["Yumurtaları çırp.", "Peynir ve kıyılmış maydanozu ekle.", "Tavada iki yüzünü pişir."] },
+  { title: "Ispanaklı yoğurtlu borani", time: "20 dk", needs: ["ıspanak", "yoğurt"], extra: ["sarımsak"], steps: ["Ispanağı haşla, süz.", "Sarımsaklı yoğurtla karıştır.", "Üzerine kızdırılmış tereyağı gezdir."] }
+];
+const recipesEl = document.getElementById("recipes"), askBtn = document.getElementById("askRecipe");
+askBtn.onclick = askRecipes;
+function recipeCard(r) {
+  return `<article class="recipe"><div class="row" style="justify-content:space-between;align-items:baseline"><h2 style="font-size:18px">${esc(r.title)}</h2><span class="lbl">${esc(r.time || "")}</span></div>
+    <div>${(r.uses || []).map(u => `<span class="tag use">${esc(u)}</span>`).join("")}${(r.missing || []).map(u => `<span class="tag miss">+ ${esc(u)}</span>`).join("")}</div>
+    <ol>${(r.steps || []).map(s => `<li>${esc(s)}</li>`).join("")}</ol></article>`;
+}
+async function askRecipes() {
+  const active = state.items.filter(i => i.status === "active" && daysLeft(i.expires) >= 0).sort((a, b) => a.expires.localeCompare(b.expires));
+  if (!active.length) { recipesEl.innerHTML = `<div class="empty">Tarif için dolapta tarihi geçmemiş ürün yok.</div>`; return; }
+  const sample = await samplePromise;
+  if (!sample) {
+    const have = active.map(i => i.name.toLocaleLowerCase("tr"));
+    const hit = FALLBACK.map(r => ({ ...r, uses: r.needs.filter(n => have.some(h => h.includes(n))), missing: r.extra }))
+      .filter(r => r.uses.length >= 2).sort((a, b) => b.uses.length - a.uses.length);
+    recipesEl.innerHTML = (hit.length ? hit.map(recipeCard).join("") : `<div class="empty">Eşleşen hazır tarif yok.</div>`)
+      + `<p class="note" style="grid-column:1/-1">Bunlar hazır tarifler. Claude içinde açınca dolabına özel tarif üretirim.</p>`;
+    return;
+  }
+  askBtn.disabled = true; recipesEl.innerHTML = `<div class="empty">Dolabına bakıyorum…</div>`;
+  const list = active.map(i => `- ${i.name}${i.qty ? " (" + i.qty + ")" : ""}: ${daysLeft(i.expires)} gün kaldı`).join("\n");
+  const prompt = `Buzdolabımda şunlar var (kalan gün ile):\n${list}\n
+Evde temel malzemeler (tuz, karabiber, yağ, un, salça, soğan) var sayılabilir. Ev usulü Türk mutfağına yakın 3 tarif öner; son tarihi en yakın ürünleri mutlaka kullan.
+Sadece JSON dizisi döndür: [{"title":"","time":"20 dk","uses":["dolaptan kullanılan ürünler"],"missing":["alınması gereken, temel olmayan malzemeler"],"steps":["en fazla 5 kısa adım"]}]`;
+  try {
+    const out = await sample.json(prompt);
+    recipesEl.innerHTML = (Array.isArray(out) ? out : out.recipes || []).map(recipeCard).join("") || `<div class="empty">Tarif bulamadım.</div>`;
+  } catch (e) { recipesEl.innerHTML = `<div class="empty">${errText(e.code)}</div>`; }
+  finally { askBtn.disabled = false; }
+}
+
+render();
+initStore();
+</script>
